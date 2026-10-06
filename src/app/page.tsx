@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Attempt, Quiz, QuizDraft } from "@/lib/types";
 import { bestAttempts, calculateScore, formatTime, normalizeArabicName, seedQuizzes } from "@/lib/quiz";
+import { sanitizeAttempts, sanitizeQuizzes } from "@/lib/validate";
 
 type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v1", ATTEMPTS_KEY="nabd-attempts-v1";
@@ -11,7 +12,11 @@ function uid(){ return globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.
 export default function App(){
   const [ready,setReady]=useState(false),[view,setView]=useState<View>("home"),[name,setName]=useState("");
   const [quizzes,setQuizzes]=useState<Quiz[]>(seedQuizzes),[attempts,setAttempts]=useState<Attempt[]>([]),[active,setActive]=useState<Quiz|null>(null),[last,setLast]=useState<Attempt|null>(null);
-  useEffect(()=>{ try{setQuizzes(JSON.parse(localStorage.getItem(QUIZZES_KEY)||"null")||seedQuizzes);setAttempts(JSON.parse(localStorage.getItem(ATTEMPTS_KEY)||"[]"));}catch{} setReady(true);},[]);
+  useEffect(()=>{ try{
+    const storedQuizzes=localStorage.getItem(QUIZZES_KEY);
+    if(storedQuizzes!==null){const safe=sanitizeQuizzes(JSON.parse(storedQuizzes));setQuizzes(safe.length?safe:seedQuizzes);}
+    setAttempts(sanitizeAttempts(JSON.parse(localStorage.getItem(ATTEMPTS_KEY)||"[]")));
+  }catch{} setReady(true);},[]);
   useEffect(()=>{if(ready)localStorage.setItem(QUIZZES_KEY,JSON.stringify(quizzes));},[quizzes,ready]);
   useEffect(()=>{if(ready)localStorage.setItem(ATTEMPTS_KEY,JSON.stringify(attempts));},[attempts,ready]);
   const goHome=()=>{setView("home");setActive(null)};
@@ -31,11 +36,26 @@ function Home({name,setName,quizzes,onStart}:{name:string;setName:(s:string)=>vo
 }
 
 function Player({quiz,studentName,onCancel,onFinish}:{quiz:Quiz;studentName:string;onCancel:()=>void;onFinish:(a:Attempt)=>void}){
-  const [answers,setAnswers]=useState<number[]>(()=>quiz.questions.map(()=>-1)),[index,setIndex]=useState(0),[remaining,setRemaining]=useState(quiz.durationMinutes?quiz.durationMinutes*60:null); const [started]=useState(Date.now());
-  const finish=()=>onFinish({id:uid(),quizId:quiz.id,studentName:studentName.trim(),normalizedName:normalizeArabicName(studentName),answers,score:calculateScore(quiz,answers),elapsedSeconds:Math.max(1,Math.round((Date.now()-started)/1000)),submittedAt:new Date().toISOString()});
-  useEffect(()=>{if(remaining===null)return; if(remaining<=0){finish();return} const t=setTimeout(()=>setRemaining(r=>r===null?null:r-1),1000);return()=>clearTimeout(t)},[remaining]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [answers,setAnswers]=useState<number[]>(()=>quiz.questions.map(()=>-1)),[index,setIndex]=useState(0);
+  const durationSeconds=quiz.durationMinutes?quiz.durationMinutes*60:null;
+  const [remaining,setRemaining]=useState(durationSeconds);
+  const [started]=useState(()=>Date.now());
+  const answersRef=useRef(answers),finishedRef=useRef(false),finishRef=useRef<()=>void>(()=>{});
+  const setAnswer=(value:number)=>{const next=answers.map((x,j)=>j===index?value:x);answersRef.current=next;setAnswers(next);};
+  const finish=()=>{
+    if(finishedRef.current)return; finishedRef.current=true;
+    const submitted=answersRef.current;
+    onFinish({id:uid(),quizId:quiz.id,studentName:studentName.trim(),normalizedName:normalizeArabicName(studentName),answers:submitted,score:calculateScore(quiz,submitted),elapsedSeconds:Math.max(1,Math.round((Date.now()-started)/1000)),submittedAt:new Date().toISOString()});
+  };
+  useEffect(()=>{finishRef.current=finish;});
+  useEffect(()=>{
+    if(durationSeconds===null)return;
+    const deadline=started+durationSeconds*1000;
+    const t=setInterval(()=>{const left=Math.max(0,Math.ceil((deadline-Date.now())/1000));setRemaining(left);if(left<=0){clearInterval(t);finishRef.current();}},250);
+    return()=>clearInterval(t);
+  },[durationSeconds,started]);
   const q=quiz.questions[index],answered=answers[index]>=0;
-  return <section className="play"><div className="play-top"><button className="back" onClick={onCancel}>→ رجوع</button><div><strong>{quiz.title}</strong><small>{studentName}</small></div>{remaining!==null&&<time aria-live="polite">⏱ {formatTime(remaining)}</time>}</div><div className="progress"><span style={{width:`${(index+1)/quiz.questions.length*100}%`}}/><p>السؤال {index+1} من {quiz.questions.length}</p></div><form onSubmit={e=>{e.preventDefault();if(index===quiz.questions.length-1)finish();else setIndex(i=>i+1)}}><fieldset><legend>{q.text}</legend><p className="question-type">{q.type==="mcq"?"اختر إجابة واحدة":"صح أم خطأ؟"}</p><div className="options">{q.options.map((option,i)=><label key={i} className={answers[index]===i?"selected":""}><input type="radio" name={`q-${q.id}`} value={i} checked={answers[index]===i} onChange={()=>setAnswers(a=>a.map((x,j)=>j===index?i:x))}/><span>{option}</span></label>)}</div></fieldset><div className="play-actions"><button type="button" className="secondary" disabled={index===0} onClick={()=>setIndex(i=>i-1)}>السابق</button><button className="primary" type="submit" disabled={!answered}>{index===quiz.questions.length-1?"إنهاء وتسليم":"السؤال التالي"}</button></div></form></section>;
+  return <section className="play"><div className="play-top"><button className="back" onClick={onCancel}>→ رجوع</button><div><strong>{quiz.title}</strong><small>{studentName}</small></div>{remaining!==null&&<time aria-live="polite">⏱ {formatTime(remaining)}</time>}</div><div className="progress"><span style={{width:`${(index+1)/quiz.questions.length*100}%`}}/><p>السؤال {index+1} من {quiz.questions.length}</p></div><form onSubmit={e=>{e.preventDefault();if(index===quiz.questions.length-1)finish();else setIndex(i=>i+1)}}><fieldset><legend>{q.text}</legend><p className="question-type">{q.type==="mcq"?"اختر إجابة واحدة":"صح أم خطأ؟"}</p><div className="options">{q.options.map((option,i)=><label key={i} className={answers[index]===i?"selected":""}><input type="radio" name={`q-${q.id}`} value={i} checked={answers[index]===i} onChange={()=>setAnswer(i)}/><span>{option}</span></label>)}</div></fieldset><div className="play-actions"><button type="button" className="secondary" disabled={index===0} onClick={()=>setIndex(i=>i-1)}>السابق</button><button className="primary" type="submit" disabled={!answered}>{index===quiz.questions.length-1?"إنهاء وتسليم":"السؤال التالي"}</button></div></form></section>;
 }
 
 function Result({quiz,attempt,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;onHome:()=>void;onBoard:()=>void}){return <section className="result"><div className="score-ring"><strong>{attempt.score}%</strong><span>{attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{quiz.questions.map((q,i)=>{const ok=attempt.answers[i]===q.correctIndex;return <li key={q.id} className={ok?"correct":"wrong"}><strong>{ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{q.text}</h3><p>إجابتك: {attempt.answers[i]>=0?q.options[attempt.answers[i]]:"بدون إجابة"}</p>{!ok&&<p>الصحيح: {q.options[q.correctIndex]}</p>}<small>{q.explanation}</small></li>})}</ol></section>}

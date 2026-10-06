@@ -15,10 +15,14 @@ export const seedQuizzes: Quiz[] = [
 ];
 
 export function normalizeArabicName(value:string){ return value.trim().replace(/\s+/g," ").replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").toLocaleLowerCase("ar"); }
-export function calculateScore(quiz:Quiz, answers:number[]){ const correct=quiz.questions.reduce((n,q,i)=>n+(answers[i]===q.correctIndex?1:0),0); return Math.round(correct/quiz.questions.length*100); }
+export function calculateScore(quiz:Quiz, answers:number[]){
+  if(quiz.questions.length===0) return 0;
+  const correct=quiz.questions.reduce((n,q,i)=>{ const a=answers[i]; return n+(Number.isInteger(a)&&a===q.correctIndex?1:0); },0);
+  return Math.round(correct/quiz.questions.length*100);
+}
 export function bestAttempts(attempts:Attempt[], quizId:string){
   const map=new Map<string,Attempt>();
-  for(const a of attempts.filter(x=>x.quizId===quizId)){ const old=map.get(a.normalizedName); if(!old || a.score>old.score || (a.score===old.score && a.elapsedSeconds<old.elapsedSeconds)) map.set(a.normalizedName,a); }
+  for(const a of attempts.filter(x=>x.quizId===quizId)){ const old=map.get(a.normalizedName); if(!old || a.score>old.score || (a.score===old.score && (a.elapsedSeconds<old.elapsedSeconds || (a.elapsedSeconds===old.elapsedSeconds && a.submittedAt.localeCompare(old.submittedAt)<0)))) map.set(a.normalizedName,a); }
   return [...map.values()].sort((a,b)=>b.score-a.score || a.elapsedSeconds-b.elapsedSeconds || a.submittedAt.localeCompare(b.submittedAt));
 }
-export function formatTime(seconds:number){ const m=Math.floor(seconds/60); const s=seconds%60; return `${m}:${String(s).padStart(2,"0")}`; }
+export function formatTime(seconds:number){ const total=Math.max(0,Math.round(seconds)); const m=Math.floor(total/60); const s=total%60; return `${m}:${String(s).padStart(2,"0")}`; }
