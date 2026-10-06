@@ -9,8 +9,8 @@ const cairo = Cairo({
 });
 
 export const metadata:Metadata = {
-  title: "نبض | اختبارات عربية",
-  description: "اختبارات عربية سريعة وتفاعلية",
+  title: "اختباراتك | وتحدَّ نفسك",
+  description: "منصة اختبارات سريعة وتفاعلية",
   icons: { icon: "/favicon.svg" }
 };
 

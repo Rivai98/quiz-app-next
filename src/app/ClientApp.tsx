@@ -119,11 +119,11 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
       view==="leaderboard"?<Leaderboard quizzes={quizzes} attempts={attempts} hasSupabase={hasSupabase}/>:
       <Admin quizzes={quizzes} setQuizzes={setQuizzes} hasSupabase={hasSupabase}/>}
     </main>
-    <footer>نبض — تعلّم، جرّب، وتقدّم ✦</footer>
+    <footer>اختباراتك — تعلّم، جرّب، وتقدّم ✦</footer>
   </div>;
 }
 
-function Header({view,onHome,onLeaderboard}:{view:View;onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span aria-hidden="true">✓</span><span className="brand-word">نبض</span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button></div></nav></header>}
+function Header({view,onHome,onLeaderboard}:{view:View;onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span aria-hidden="true">✓</span><span className="brand-word">اختباراتك</span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button></div></nav></header>}
 
 function Home({name,setName,quizzes,onStart,hasSupabase}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void;hasSupabase:boolean}){
   const [error,setError]=useState(""); 
