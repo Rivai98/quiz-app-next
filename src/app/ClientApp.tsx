@@ -11,6 +11,23 @@ import confetti from "canvas-confetti";
 type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v2", ATTEMPTS_KEY="nabd-attempts-v2";
 
+function EmptyState({ text, style }: { text: string, style?: React.CSSProperties }) {
+  return <div className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem 1rem', ...style }}>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+      <line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>
+    <p style={{ margin: 0 }}>{text}</p>
+  </div>;
+}
+
+const getScoreClass = (score: number) => {
+  if (score >= 70) return "score-ring good";
+  if (score >= 50) return "score-ring warn";
+  return "score-ring retry";
+};
+
 export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   const [ready,setReady]=useState(false);
   const [view,setView]=useState<View>("home");
@@ -93,9 +110,9 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   };
 
   return <div className="shell">
-    <Header view={view} onHome={goHome} onLeaderboard={()=>setView("leaderboard")} onAdmin={()=>setView("admin")}/>
+    <Header view={view} onHome={goHome} onLeaderboard={()=>setView("leaderboard")}/>
     <main id="main" tabIndex={-1}>
-      {!ready?<div className="empty">جارٍ تجهيز الاختبارات…</div>:
+      {!ready?<EmptyState text="جارٍ تجهيز الاختبارات…" />:
       view==="home"?<Home name={name} setName={setName} quizzes={quizzes} onStart={q=>{setActive(q);setView("play")}} hasSupabase={hasSupabase}/>:
       view==="play"&&active?<Player quiz={active} studentName={name} onCancel={goHome} onFinish={handleFinish}/>:
       view==="result"&&active&&lastAttempt&&lastReview?<Result quiz={active} attempt={lastAttempt} review={lastReview} onHome={goHome} onBoard={()=>setView("leaderboard")}/>:
@@ -106,23 +123,23 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   </div>;
 }
 
-function Header({view,onHome,onLeaderboard,onAdmin}:{view:View;onHome:()=>void;onLeaderboard:()=>void;onAdmin:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>ن</span><span className="brand-word">نبض<small>مساحة للتعلّم</small></span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button><button className="nav-link teacher-link" aria-current={view==="admin"?"page":undefined} onClick={onAdmin}>لوحة المدرّس</button></div></nav></header>}
+function Header({view,onHome,onLeaderboard}:{view:View;onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span aria-hidden="true">✓</span><span className="brand-word">نبض</span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button></div></nav></header>}
 
 function Home({name,setName,quizzes,onStart,hasSupabase}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void;hasSupabase:boolean}){
   const [error,setError]=useState(""); 
   const submit=(e:FormEvent<HTMLFormElement>,q:Quiz)=>{e.preventDefault();if(name.trim().length<2){setError("اكتب اسمك أولًا (حرفان على الأقل).");return}setError("");onStart(q)};
   return <>
     <section className="hero">
-      <div className="welcome-copy"><div className="eyebrow">كل محاولة، خطوة للأمام</div>
-      <h1>وقت صغير.<br/><em>معرفة أكبر.</em></h1>
-      <p>اختر اختبارًا، خُد وقتك، واكتشف ما تعلّمته. البداية باسمك فقط.</p><div className="welcome-note"><span>01</span> اختر <span>02</span> جرّب <span>03</span> تعلّم</div></div>
+      <div className="welcome-copy"><div className="eyebrow">مساحتك للتعلّم</div>
+      <h1>اختبر معلوماتك.<br/><em>واكتشف تقدّمك.</em></h1>
+      <p>اختبارات قصيرة باللغة العربية. اكتب اسمك واختر اختبارًا لتبدأ.</p></div>
       <div className="name-box"><label htmlFor="student-name">اسم الطالب</label><span id="name-help" className="help">سيظهر اسمك في لوحة المتصدرين.</span><input id="student-name" name="studentName" value={name} onChange={e=>setName(e.target.value)} maxLength={60} required autoComplete="name" placeholder="مثال: سارة أحمد" aria-describedby="name-help name-error"/>{error&&<strong id="name-error" className="error" role="alert">{error}</strong>}</div>
     </section>
     <section className="content">
       {!hasSupabase && <div className="demo-notice"><strong>وضع التجربة (Demo):</strong> قاعدة البيانات غير متصلة. التغييرات تحفظ في متصفحك فقط.</div>}
-      <div className="section-title"><div><span className="eyebrow">مساحة الفضول</span><h2>اختار تحدّيك اليوم</h2></div><span className="count">{quizzes.length} اختبارات متاحة</span></div>
+      <div className="section-title"><div><span className="eyebrow">ابدأ الآن</span><h2>الاختبارات المتاحة</h2></div><span className="count">{quizzes.length} اختبارات متاحة</span></div>
       <div className="quiz-grid">{quizzes.map((q,i)=><article className="quiz-card" key={q.id}><div className={`card-icon c${i%3}`}>{["✦","أ","∞"][i%3]}</div><div className="tags"><span>{q.unit}</span><span>{q.durationMinutes?`${q.durationMinutes} دقائق`:"بدون مؤقت"}</span></div><h3>{q.title}</h3><p>{q.description}</p><div className="card-foot"><span>{q.questions.length} أسئلة</span><form onSubmit={e=>submit(e,q)}><button className="primary" type="submit"><span>ابدأ الاختبار</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button></form></div></article>)}
-      {quizzes.length===0&&<div className="empty" style={{gridColumn:"1/-1"}}>لا توجد اختبارات منشورة حالياً.</div>}
+      {quizzes.length===0&&<EmptyState style={{gridColumn:"1/-1"}} text="لا توجد اختبارات منشورة حالياً." />}
       </div>
     </section>
   </>;
@@ -170,7 +187,7 @@ function Result({quiz,attempt,review,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;
     }
   }, [attempt.score]);
 
-  return <section className="result"><div className={attempt.score>=70?"score-ring good":"score-ring retry"}><strong>{attempt.score}%</strong><span>{attempt.score===100?"بطل! 🏆":attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{quiz.questions[i].text}</h3><p>إجابتك: {r.given?r.given:"بدون إجابة"}</p>{!r.ok&&<p>الصحيح: {r.correct}</p>}<small>{r.explanation}</small></li>})}</ol></section>
+  return <section className="result"><div className={getScoreClass(attempt.score)}><strong>{attempt.score}%</strong><span>{attempt.score===100?"بطل! 🏆":attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{quiz.questions[i].text}</h3><p>إجابتك: {r.given?r.given:"بدون إجابة"}</p>{!r.ok&&<p>الصحيح: {r.correct}</p>}<small>{r.explanation}</small></li>})}</ol></section>
 }
 
 function Leaderboard({quizzes,attempts,hasSupabase}:{quizzes:Quiz[];attempts:Attempt[];hasSupabase:boolean}){
@@ -185,7 +202,7 @@ function Leaderboard({quizzes,attempts,hasSupabase}:{quizzes:Quiz[];attempts:Att
     }
   }, [qid, attempts, hasSupabase]);
 
-  return <section className="content narrow"><span className="eyebrow">روح المنافسة</span><h1>لوحة المتصدرين</h1><label htmlFor="board-quiz">اختر الاختبار</label><select id="board-quiz" value={qid} onChange={e=>setQid(e.target.value)}>{quizzes.map(q=><option value={q.id} key={q.id}>{q.title}</option>)}</select>{rows.length?<div className="table-wrap"><table><caption>أفضل محاولة لكل طالب</caption><thead><tr><th scope="col">الترتيب</th><th scope="col">الطالب</th><th scope="col">النتيجة</th><th scope="col">الوقت</th></tr></thead><tbody>{rows.map((a,i)=><tr key={a.id}><td className="rank"><span aria-label={`المركز ${i+1}`}>{i<3?["🥇","🥈","🥉"][i]:i+1}</span></td><th scope="row">{a.studentName}</th><td>{a.score}%</td><td>{formatTime(a.elapsedSeconds)}</td></tr>)}</tbody></table></div>:<div className="empty">لا توجد محاولات بعد. كن أول المتصدرين!</div>}<p className="privacy">تظهر الأسماء والنتائج والأوقات بشكل عام {hasSupabase?"في التطبيق":"داخل هذا المتصفح"}.</p></section>
+  return <section className="content narrow"><span className="eyebrow">روح المنافسة</span><h1>لوحة المتصدرين</h1><label htmlFor="board-quiz">اختر الاختبار</label><select id="board-quiz" value={qid} onChange={e=>setQid(e.target.value)}>{quizzes.map(q=><option value={q.id} key={q.id}>{q.title}</option>)}</select>{rows.length?<div className="table-wrap"><table><caption>أفضل محاولة لكل طالب</caption><thead><tr><th scope="col">الترتيب</th><th scope="col">الطالب</th><th scope="col">النتيجة</th><th scope="col">الوقت</th></tr></thead><tbody>{rows.map((a,i)=><tr key={a.id}><td className="rank"><span aria-label={`المركز ${i+1}`}>{i<3?["🥇","🥈","🥉"][i]:i+1}</span></td><th scope="row">{a.studentName}</th><td>{a.score}%</td><td>{formatTime(a.elapsedSeconds)}</td></tr>)}</tbody></table></div>:<EmptyState text="لا توجد محاولات بعد. كن أول المتصدرين!" />}<p className="privacy">تظهر الأسماء والنتائج والأوقات بشكل عام {hasSupabase?"في التطبيق":"داخل هذا المتصفح"}.</p></section>
 }
 
 function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Quiz[])=>void;hasSupabase:boolean}){
@@ -351,7 +368,7 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
               <button className="secondary small" style={{ color: 'var(--bad)' }} onClick={()=>deleteQuiz(q)}>حذف</button>
             </div>
           </li>)}
-          {adminQuizzes.length === 0 && <li className="empty">لا توجد اختبارات.</li>}
+          {adminQuizzes.length === 0 && <li style={{listStyle:'none', padding:0, border:0}}><EmptyState text="لا توجد اختبارات." /></li>}
         </ul>
       </div>
     </div>
