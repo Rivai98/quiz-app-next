@@ -1,5 +1,26 @@
 import type { Metadata } from "next";
+import { Cairo } from "next/font/google";
 import "./globals.css";
 
-export const metadata:Metadata={title:"نبض | اختبارات عربية ذكية",description:"اختبارات عربية سريعة مع إنشاء الأسئلة بالذكاء الاصطناعي",icons:{icon:"/favicon.svg"}};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="ar" dir="rtl"><body><a className="skip-link" href="#main">انتقل إلى المحتوى</a>{children}</body></html>}
+const cairo = Cairo({
+  subsets: ["arabic", "latin"],
+  display: "swap",
+  variable: "--font-cairo",
+});
+
+export const metadata:Metadata = {
+  title: "نبض | اختبارات عربية",
+  description: "اختبارات عربية سريعة وتفاعلية",
+  icons: { icon: "/favicon.svg" }
+};
+
+export default function RootLayout({children}:{children:React.ReactNode}) {
+  return (
+    <html lang="ar" dir="rtl" className={cairo.variable}>
+      <body>
+        <a className="skip-link" href="#main">انتقل إلى المحتوى</a>
+        {children}
+      </body>
+    </html>
+  );
+}

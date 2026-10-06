@@ -1,0 +1,63 @@
+<objective>
+Replace the Gemini-based quiz-generation workflow with a Supabase-backed JSON import, preview, draft, and publish workflow, and materially improve Arabic typography and overall visual polish.
+</objective>
+
+<context>
+This is a working Next.js 16 + React 19 + TypeScript Arabic RTL quiz MVP. Current commit history includes hardened timer/state/leaderboard logic and recent UI polish. The app currently stores quizzes and attempts in localStorage, has a client-side teacher PIN, and includes a server-side Gemini generation endpoint. The user no longer wants any Gemini/AI integration because of cost. They will generate quiz files externally and upload JSON files. Use a new OpenCode session with model opencode-go/glm-5.3-flash. Do not commit; the orchestrator reviews and commits.
+</context>
+
+<product_requirements>
+- Remove Gemini completely: dependency, adapter, generation route, environment variables, UI copy/controls, and documentation.
+- Add Supabase as the shared persistence layer using current official @supabase/supabase-js APIs.
+- Use server-only Supabase access in Next.js route handlers. Keep the service-role key and admin PIN server-only; never expose them as NEXT_PUBLIC variables.
+- Provide SQL migration/setup for two MVP tables:
+  - quizzes: id UUID, title, unit, description, optional duration_minutes, published boolean, questions JSONB, timestamps.
+  - attempts: id UUID, quiz_id FK, student_name, normalized_name, answers JSONB, score, elapsed_seconds, submitted_at.
+- Add indexes/constraints needed for published quiz reads and leaderboard queries. Enable RLS and deny direct anon table mutations; browser interactions go through validated server routes.
+- Student app loads published quizzes from server, submits attempts to the server, and loads the per-quiz leaderboard from shared database data. Server recomputes score using the stored quiz and does not trust client score/elapsed/name normalization.
+- Teacher/admin flow uses a server-verified ADMIN_PIN. A minimal secure session/cookie is preferred; if that cannot be kept bounded, every admin mutation must verify the PIN server-side. Remove the current public client-side PIN environment approach.
+- JSON upload accepts .json only. Parse and validate locally before any DB write. Provide clear Arabic errors for malformed shape, invalid question types, invalid correctIndex, excessive size/count, and wrong true/false options.
+- Required import schema: title, unit, description, durationMinutes nullable, questions[]. Each question has type mcq|true_false, text, options, correctIndex, explanation. IDs may be absent and should be generated when saving.
+- Show a proper preview before saving: metadata, question count/types, every question/options, highlighted correct answer, explanations, duration. Allow editing at least title, unit, description, duration and question text/options/correct answer/explanation before saving.
+- Saving creates an unpublished draft. Publishing/unpublishing is a separate explicit teacher action.
+- Add a downloadable example JSON/template from the admin UI or public asset.
+- When Supabase variables are absent, preserve an obvious zero-config local Demo mode with seed quizzes and local attempts so the app still starts/tests. Clearly label this mode and document that shared data requires Supabase.
+</product_requirements>
+
+<design_requirements>
+- Improve Arabic font quality using a suitable locally/fallback-safe Arabic font stack or Next font solution that does not break offline builds. Do not add a runtime dependency on a remote font request.
+- Improve the existing design coherently rather than layering random effects: typography, spacing, cards, upload drop area, preview hierarchy, admin layout, mobile behavior, contrast, and polished empty/loading/error states.
+- Keep Arabic-first RTL, semantic forms/fieldset/radios, explicit labels, keyboard operation, visible focus, minimum 48px targets, reduced motion, and responsive tables/cards.
+- Keep the experience simple and fast. No component library and no speculative features.
+</design_requirements>
+
+<implementation_constraints>
+- Use Context7 CLI for current Next.js and Supabase APIs before implementing: resolve library IDs first, max 3 commands unless truly necessary.
+- Do not use Supabase Storage: quiz JSON is parsed and stored as rows/JSONB, not retained as a file.
+- Validate all incoming data on the server with Zod, cap JSON file size and question count, and return Arabic user-facing errors.
+- Do not expose answer keys in published quiz-list/play responses before submission. Return corrections only after a successful attempt submission.
+- Keep domain functions testable and preserve existing behavior where applicable.
+- Update .env.example and README with exact Supabase project setup, SQL application, environment variables, local/demo behavior, JSON format, and run steps.
+- Do not modify .env.local or reveal secrets.
+- Do not commit or push.
+</implementation_constraints>
+
+<gates>
+- npm test
+- npm run typecheck
+- npm run build
+</gates>
+
+<acceptance>
+- App works end-to-end in demo mode without credentials.
+- With Supabase configured, quizzes/attempts/leaderboard are shared across browsers.
+- Teacher can upload valid JSON, preview/edit, save draft, then publish separately.
+- Invalid JSON never reaches the database.
+- Public quiz payload does not contain correctIndex/explanation before submission.
+- Gemini has no remaining code, package, env var, or UI reference.
+- Tests cover JSON validation, answer redaction, server-side scoring, and leaderboard best-attempt behavior.
+</acceptance>
+
+<report>
+Return only: status; concise summary; files changed grouped; validation/gate results; important decisions; setup still required from user; risks/blockers; recommended next action.
+</report>

@@ -1,7 +1,7 @@
 :root{--ink:#202039;--muted:#5c5c72;--paper:#f8f7fb;--card:#fff;--brand:#5b4be8;--brand-dark:#4338ca;--brand-soft:#f2f0ff;--line:#dedde8;--ok:#0f7a56;--ok-soft:#e6f7ef;--bad:#b42318;--bad-soft:#fdeceb;--mint:#c9f4df;--peach:#ffe0c2;--pink:#fbd5e5;--shadow:0 8px 30px #2925440f;--radius:18px;color-scheme:light}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:Tahoma,"Segoe UI",Arial,sans-serif;line-height:1.7;text-align:start;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-cairo), system-ui, sans-serif;line-height:1.7;text-align:start;-webkit-text-size-adjust:100%}
 button,input,textarea,select{font:inherit}
 button,a,input,textarea,select{min-height:48px}
 button{cursor:pointer}
@@ -59,7 +59,7 @@ select{margin-block-start:.4rem}
 .card-foot>span{color:var(--muted);font-weight:700}
 
 /* Buttons */
-.primary,.secondary{border:0;border-radius:12px;padding:.65rem 1.25rem;font-weight:800;transition:background .15s,transform .15s}
+.primary,.secondary,.back{border:0;border-radius:12px;padding:.65rem 1.25rem;font-weight:800;transition:background .15s,transform .15s;display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;}
 .primary{background:var(--brand);color:#fff}
 .primary:hover{background:var(--brand-dark)}
 .primary:active,.secondary:active{transform:translateY(1px)}

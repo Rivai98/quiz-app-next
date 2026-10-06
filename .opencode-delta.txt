@@ -1,0 +1,16 @@
+Continue and finish the interrupted Supabase JSON-import migration already partially implemented in this working tree. Do not restart or discard the existing new library files. Read `.opencode-brief.txt` for the complete requirements and acceptance criteria.
+
+Immediate remaining work:
+1. Finish all Next.js API routes for published quizzes, server-scored attempt submission/corrections, per-quiz leaderboard, server-verified admin PIN, JSON draft saving, listing drafts, and publish/unpublish.
+2. Finish the student UI conversion from localStorage to those APIs while keeping the documented zero-config demo fallback.
+3. Replace the admin Gemini form with `.json` file upload, local validation, complete preview/edit UI, save-as-draft, and separate publish toggle. Add downloadable example JSON.
+4. Add the Supabase SQL migration with constraints, indexes, RLS, and deny direct anon mutation.
+5. Remove every Gemini code/package/env/UI/docs reference.
+6. Improve the Arabic font stack and coherent styling for upload, preview, loading/error/empty states and mobile.
+7. Update `.env.example` and README with exact Supabase setup.
+8. Add/finish tests for validation, redaction, scoring, and leaderboard.
+9. Run `npm test`, `npm run typecheck`, and `npm run build`; fix failures.
+
+Constraints: do not commit, do not touch `.env.local`, do not expose answer keys before successful submission, and keep the service-role key plus ADMIN_PIN server-only. Use current official APIs; the prior session already ran the required Context7 research, so reuse its implementation direction.
+
+Return only: status; summary; grouped files changed; gate results; setup required; risks/blockers.

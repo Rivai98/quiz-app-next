@@ -1,70 +1,7 @@
-"use client";
+import ClientApp from "./ClientApp";
+import { hasSupabaseEnv } from "@/lib/supabase";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { Attempt, Quiz, QuizDraft } from "@/lib/types";
-import { bestAttempts, calculateScore, formatTime, normalizeArabicName, seedQuizzes } from "@/lib/quiz";
-import { sanitizeAttempts, sanitizeQuizzes } from "@/lib/validate";
-
-type View="home"|"play"|"result"|"leaderboard"|"admin";
-const QUIZZES_KEY="nabd-quizzes-v1", ATTEMPTS_KEY="nabd-attempts-v1";
-function uid(){ return globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`; }
-
-export default function App(){
-  const [ready,setReady]=useState(false),[view,setView]=useState<View>("home"),[name,setName]=useState("");
-  const [quizzes,setQuizzes]=useState<Quiz[]>(seedQuizzes),[attempts,setAttempts]=useState<Attempt[]>([]),[active,setActive]=useState<Quiz|null>(null),[last,setLast]=useState<Attempt|null>(null);
-  useEffect(()=>{ try{
-    const storedQuizzes=localStorage.getItem(QUIZZES_KEY);
-    if(storedQuizzes!==null){const safe=sanitizeQuizzes(JSON.parse(storedQuizzes));setQuizzes(safe.length?safe:seedQuizzes);}
-    setAttempts(sanitizeAttempts(JSON.parse(localStorage.getItem(ATTEMPTS_KEY)||"[]")));
-  }catch{} setReady(true);},[]);
-  useEffect(()=>{if(ready)localStorage.setItem(QUIZZES_KEY,JSON.stringify(quizzes));},[quizzes,ready]);
-  useEffect(()=>{if(ready)localStorage.setItem(ATTEMPTS_KEY,JSON.stringify(attempts));},[attempts,ready]);
-  const goHome=()=>{setView("home");setActive(null)};
-  return <div className="shell"><Header onHome={goHome} onLeaderboard={()=>setView("leaderboard")} onAdmin={()=>setView("admin")}/><main id="main" tabIndex={-1}>
-    {!ready?<div className="empty">جارٍ تجهيز الاختبارات…</div>:
-    view==="home"?<Home name={name} setName={setName} quizzes={quizzes.filter(q=>q.published)} onStart={q=>{setActive(q);setView("play")}}/>:
-    view==="play"&&active?<Player quiz={active} studentName={name} onCancel={goHome} onFinish={a=>{setAttempts(x=>[...x,a]);setLast(a);setView("result")}}/>:
-    view==="result"&&active&&last?<Result quiz={active} attempt={last} onHome={goHome} onBoard={()=>setView("leaderboard")}/>:
-    view==="leaderboard"?<Leaderboard quizzes={quizzes.filter(q=>q.published)} attempts={attempts}/>:<Admin quizzes={quizzes} setQuizzes={setQuizzes}/>} </main><footer>نبض — تعلّم، جرّب، وتقدّم ✦</footer></div>;
+export default function Page() {
+  const isSupabaseConfigured = hasSupabaseEnv();
+  return <ClientApp hasSupabase={isSupabaseConfigured} />;
 }
-
-function Header({onHome,onLeaderboard,onAdmin}:{onHome:()=>void;onLeaderboard:()=>void;onAdmin:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>✓</span> نبض</button><div><button className="nav-link" onClick={onHome}>الاختبارات</button><button className="nav-link" onClick={onLeaderboard}>لوحة المتصدرين</button><button className="nav-link" onClick={onAdmin}>للمدرّس</button></div></nav></header>}
-
-function Home({name,setName,quizzes,onStart}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void}){
-  const [error,setError]=useState(""); const submit=(e:FormEvent<HTMLFormElement>,q:Quiz)=>{e.preventDefault();if(name.trim().length<2){setError("اكتب اسمك أولًا (حرفان على الأقل).");return}setError("");onStart(q)};
-  return <><section className="hero"><div className="eyebrow">مساحتك الذكية للتعلّم</div><h1>اختبر معلوماتك.<br/><em>واكتشف تقدّمك.</em></h1><p>اختبارات قصيرة وممتعة باللغة العربية. اكتب اسمك واختر اختبارًا لتبدأ فورًا.</p><div className="name-box"><label htmlFor="student-name">اسم الطالب</label><span id="name-help" className="help">سيظهر اسمك في لوحة المتصدرين.</span><input id="student-name" name="studentName" value={name} onChange={e=>setName(e.target.value)} maxLength={60} required autoComplete="name" placeholder="مثال: سارة أحمد" aria-describedby="name-help name-error"/>{error&&<strong id="name-error" className="error" role="alert">{error}</strong>}</div></section><section className="content"><div className="section-title"><div><span className="eyebrow">ابدأ الآن</span><h2>الاختبارات المتاحة</h2></div><span className="count">{quizzes.length} اختبارات</span></div><div className="quiz-grid">{quizzes.map((q,i)=><article className="quiz-card" key={q.id}><div className={`card-icon c${i%3}`}>{["✦","أ","∞"][i%3]}</div><div className="tags"><span>{q.unit}</span><span>{q.durationMinutes?`${q.durationMinutes} دقائق`:"بدون مؤقت"}</span></div><h3>{q.title}</h3><p>{q.description}</p><div className="card-foot"><span>{q.questions.length} أسئلة</span><form onSubmit={e=>submit(e,q)}><button className="primary" type="submit">ابدأ الاختبار ←</button></form></div></article>)}</div></section></>;
-}
-
-function Player({quiz,studentName,onCancel,onFinish}:{quiz:Quiz;studentName:string;onCancel:()=>void;onFinish:(a:Attempt)=>void}){
-  const [answers,setAnswers]=useState<number[]>(()=>quiz.questions.map(()=>-1)),[index,setIndex]=useState(0);
-  const durationSeconds=quiz.durationMinutes?quiz.durationMinutes*60:null;
-  const [remaining,setRemaining]=useState(durationSeconds);
-  const [started]=useState(()=>Date.now());
-  const answersRef=useRef(answers),finishedRef=useRef(false),finishRef=useRef<()=>void>(()=>{});
-  const setAnswer=(value:number)=>{const next=answers.map((x,j)=>j===index?value:x);answersRef.current=next;setAnswers(next);};
-  const finish=()=>{
-    if(finishedRef.current)return; finishedRef.current=true;
-    const submitted=answersRef.current;
-    onFinish({id:uid(),quizId:quiz.id,studentName:studentName.trim(),normalizedName:normalizeArabicName(studentName),answers:submitted,score:calculateScore(quiz,submitted),elapsedSeconds:Math.max(1,Math.round((Date.now()-started)/1000)),submittedAt:new Date().toISOString()});
-  };
-  useEffect(()=>{finishRef.current=finish;});
-  useEffect(()=>{
-    if(durationSeconds===null)return;
-    const deadline=started+durationSeconds*1000;
-    const t=setInterval(()=>{const left=Math.max(0,Math.ceil((deadline-Date.now())/1000));setRemaining(left);if(left<=0){clearInterval(t);finishRef.current();}},250);
-    return()=>clearInterval(t);
-  },[durationSeconds,started]);
-  const q=quiz.questions[index],answered=answers[index]>=0;
-  return <section className="play"><div className="play-top"><button className="back" onClick={onCancel}>→ رجوع</button><div><strong>{quiz.title}</strong><small>{studentName}</small></div>{remaining!==null&&<time className={remaining<=30?"timer low":"timer"} aria-live="polite">⏱ {formatTime(remaining)}</time>}</div><div className="progress"><p>السؤال {index+1} من {quiz.questions.length}</p><div className="bar" role="progressbar" aria-label="التقدم في الاختبار" aria-valuemin={1} aria-valuemax={quiz.questions.length} aria-valuenow={index+1}><span style={{width:`${(index+1)/quiz.questions.length*100}%`}}/></div></div><form onSubmit={e=>{e.preventDefault();if(index===quiz.questions.length-1)finish();else setIndex(i=>i+1)}}><fieldset><legend>{q.text}</legend><p className="question-type">{q.type==="mcq"?"اختر إجابة واحدة":"صح أم خطأ؟"}</p><div className="options">{q.options.map((option,i)=><label key={i} className={answers[index]===i?"selected":""}><input type="radio" name={`q-${q.id}`} value={i} checked={answers[index]===i} onChange={()=>setAnswer(i)}/><span>{option}</span></label>)}</div></fieldset><div className="play-actions"><button type="button" className="secondary" disabled={index===0} onClick={()=>setIndex(i=>i-1)}>السابق</button><button className="primary" type="submit" disabled={!answered}>{index===quiz.questions.length-1?"إنهاء وتسليم":"السؤال التالي"}</button></div></form></section>;
-}
-
-function Result({quiz,attempt,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;onHome:()=>void;onBoard:()=>void}){return <section className="result"><div className={attempt.score>=70?"score-ring good":"score-ring retry"}><strong>{attempt.score}%</strong><span>{attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{quiz.questions.map((q,i)=>{const ok=attempt.answers[i]===q.correctIndex;return <li key={q.id} className={ok?"correct":"wrong"}><strong>{ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{q.text}</h3><p>إجابتك: {attempt.answers[i]>=0?q.options[attempt.answers[i]]:"بدون إجابة"}</p>{!ok&&<p>الصحيح: {q.options[q.correctIndex]}</p>}<small>{q.explanation}</small></li>})}</ol></section>}
-
-function Leaderboard({quizzes,attempts}:{quizzes:Quiz[];attempts:Attempt[]}){const [qid,setQid]=useState(quizzes[0]?.id||"");const rows=bestAttempts(attempts,qid);return <section className="content narrow"><span className="eyebrow">روح المنافسة</span><h1>لوحة المتصدرين</h1><label htmlFor="board-quiz">اختر الاختبار</label><select id="board-quiz" value={qid} onChange={e=>setQid(e.target.value)}>{quizzes.map(q=><option value={q.id} key={q.id}>{q.title}</option>)}</select>{rows.length?<div className="table-wrap"><table><caption>أفضل محاولة لكل طالب</caption><thead><tr><th scope="col">الترتيب</th><th scope="col">الطالب</th><th scope="col">النتيجة</th><th scope="col">الوقت</th></tr></thead><tbody>{rows.map((a,i)=><tr key={a.id}><td className="rank"><span aria-label={`المركز ${i+1}`}>{i<3?["🥇","🥈","🥉"][i]:i+1}</span></td><th scope="row">{a.studentName}</th><td>{a.score}%</td><td>{formatTime(a.elapsedSeconds)}</td></tr>)}</tbody></table></div>:<div className="empty">لا توجد محاولات بعد. كن أول المتصدرين!</div>}<p className="privacy">تظهر الأسماء والنتائج والأوقات بشكل عام داخل هذا المتصفح.</p></section>}
-
-function Admin({quizzes,setQuizzes}:{quizzes:Quiz[];setQuizzes:(q:Quiz[])=>void}){
-  const [unlocked,setUnlocked]=useState(false),[pin,setPin]=useState(""),[source,setSource]=useState(""),[kind,setKind]=useState<"mixed"|"mcq"|"true_false">("mixed"),[count,setCount]=useState(5),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[draft,setDraft]=useState<QuizDraft|null>(null);
-  if(!unlocked)return <section className="admin narrow"><span className="eyebrow">لوحة المدرّس</span><h1>دخول المدرّس</h1><p>في وضع العرض، الرقم الافتراضي هو <code>1234</code>. غيّره قبل النشر.</p><form onSubmit={e=>{e.preventDefault();if(pin===(process.env.NEXT_PUBLIC_ADMIN_PIN||"1234"))setUnlocked(true);else setMessage("رقم الدخول غير صحيح.")}}><label htmlFor="pin">رقم الدخول</label><input id="pin" name="pin" type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={e=>setPin(e.target.value)} required/><button className="primary" type="submit">دخول</button>{message&&<p className="error" role="alert">{message}</p>}</form></section>;
-  const generate=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setMessage("");try{const r=await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source,count,kind})});const data=await r.json();if(!r.ok)throw new Error(data.error);setDraft(data);setMessage("تم إنشاء مسودة. راجعها ثم احفظها.")}catch(e){setMessage(e instanceof Error?e.message:"حدث خطأ غير متوقع.")}finally{setBusy(false)}};
-  const save=()=>{if(!draft)return;setQuizzes([...quizzes,{...draft,id:uid(),published:false,questions:draft.questions.map(q=>({...q,id:uid()}))}]);setDraft(null);setMessage("حُفظت المسودة. يمكنك نشرها من القائمة.")};
-  return <section className="admin"><span className="eyebrow">لوحة المدرّس</span><h1>أنشئ اختبارًا بالذكاء الاصطناعي</h1><div className="admin-grid"><form onSubmit={generate} className="panel"><label htmlFor="source">الموضوع أو النص</label><span id="source-help" className="help">الصق درسًا أو اكتب موضوعًا واضحًا (10 أحرف على الأقل).</span><textarea id="source" name="source" rows={7} minLength={10} maxLength={12000} value={source} onChange={e=>setSource(e.target.value)} required aria-describedby="source-help"/><div className="form-row"><div><label htmlFor="kind">نوع الأسئلة</label><select id="kind" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}><option value="mixed">متنوع</option><option value="mcq">اختيار من متعدد</option><option value="true_false">صح وخطأ</option></select></div><div><label htmlFor="count">عدد الأسئلة</label><input id="count" type="number" min="3" max="20" value={count} onChange={e=>setCount(Number(e.target.value))}/></div></div><button className="primary" disabled={busy}>{busy?"جارٍ الإنشاء…":"✦ أنشئ مسودة بالـ AI"}</button><p className="status" aria-live="polite">{message}</p></form><div className="panel"><h2>اختباراتي</h2><ul className="admin-list">{quizzes.map(q=><li key={q.id}><div><strong>{q.title}</strong><small>{q.published?"منشور":"مسودة"} · {q.questions.length} أسئلة</small></div><button className="secondary small" onClick={()=>setQuizzes(quizzes.map(x=>x.id===q.id?{...x,published:!x.published}:x))}>{q.published?"إلغاء النشر":"نشر"}</button></li>)}</ul></div></div>{draft&&<div className="draft"><h2>راجع وعدّل المسودة</h2><label htmlFor="draft-title">عنوان الاختبار</label><input id="draft-title" value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/><label htmlFor="draft-description">الوصف</label><textarea id="draft-description" value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/><ol>{draft.questions.map((q,i)=><li key={i}><label htmlFor={`draft-q-${i}`}>السؤال {i+1}</label><input id={`draft-q-${i}`} value={q.text} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,text:e.target.value}:x)})}/><small>الإجابة الصحيحة: {q.options[q.correctIndex]}</small></li>)}</ol><button className="primary" onClick={save}>حفظ كمسودة</button></div>}</section>}
