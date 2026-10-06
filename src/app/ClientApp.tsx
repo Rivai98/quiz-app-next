@@ -174,6 +174,7 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
   const [unlocked,setUnlocked]=useState(false),[pin,setPin]=useState(""),[message,setMessage]=useState("");
   const [adminQuizzes, setAdminQuizzes] = useState<Quiz[]>(quizzes);
   const [draft, setDraft] = useState<ImportQuiz | null>(null);
+  const [preview, setPreview] = useState<Quiz | null>(null);
 
   useEffect(() => {
     if (unlocked && hasSupabase) {
@@ -263,6 +264,29 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
     }
   };
 
+  const deleteQuiz = async (q: Quiz) => {
+    if (!confirm(`هل أنت متأكد من حذف اختبار "${q.title}" نهائياً؟`)) return;
+    if (hasSupabase) {
+      try {
+        const res = await fetch(`/api/admin/quizzes/${q.id}`, { method: "DELETE" });
+        if (res.ok) {
+          setAdminQuizzes(adminQuizzes.filter(x => x.id !== q.id));
+          setQuizzes(quizzes.filter(x => x.id !== q.id));
+          if (preview?.id === q.id) setPreview(null);
+          setMessage("تم الحذف بنجاح.");
+        } else {
+          setMessage("حدث خطأ أثناء الحذف.");
+        }
+      } catch (e: any) { setMessage(e.message); }
+    } else {
+      const updated = quizzes.filter(x => x.id !== q.id);
+      setQuizzes(updated);
+      setAdminQuizzes(updated);
+      if (preview?.id === q.id) setPreview(null);
+      setMessage("تم الحذف بنجاح.");
+    }
+  };
+
   if(!unlocked)return <section className="admin narrow"><span className="eyebrow">لوحة المدرّس</span><h1>دخول المدرّس</h1><p>الرقم الافتراضي في وضع العرض هو <code>1234</code>.</p><form onSubmit={login}><label htmlFor="pin">رقم الدخول</label><input id="pin" name="pin" type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={e=>setPin(e.target.value)} required/><button className="primary" type="submit">دخول</button>{message&&<p className="error" role="alert">{message}</p>}</form></section>;
 
   const exampleJson = JSON.stringify({
@@ -303,7 +327,11 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
         <ul className="admin-list">
           {adminQuizzes.map(q=><li key={q.id}>
             <div><strong>{q.title}</strong><small>{q.published?"منشور":"مسودة"} · {q.questions.length} أسئلة</small></div>
-            <button className="secondary small" onClick={()=>togglePublish(q)}>{q.published?"إلغاء النشر":"نشر"}</button>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button className="secondary small" onClick={() => { setPreview(q); setDraft(null); }}>معاينة</button>
+              <button className="secondary small" onClick={()=>togglePublish(q)}>{q.published?"إلغاء النشر":"نشر"}</button>
+              <button className="secondary small" style={{ color: 'var(--bad)' }} onClick={()=>deleteQuiz(q)}>حذف</button>
+            </div>
           </li>)}
           {adminQuizzes.length === 0 && <li className="empty">لا توجد اختبارات.</li>}
         </ul>
@@ -338,6 +366,36 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
           </li>)}
         </ol>
         <button className="primary" onClick={saveDraft}>حفظ كمسودة</button>
+      </div>
+    )}
+
+    {preview && (
+      <div className="draft">
+        <h2>معاينة: {preview.title}</h2>
+        <button className="secondary small" onClick={() => setPreview(null)}>إغلاق المعاينة</button>
+        <div style={{ marginTop: '1.5rem', background: 'var(--surface-sunken)', padding: '1rem', borderRadius: '10px' }}>
+          <p><strong>الوحدة:</strong> {preview.unit}</p>
+          <p><strong>الوصف:</strong> {preview.description}</p>
+          <p><strong>المدة:</strong> {preview.durationMinutes ? `${preview.durationMinutes} دقائق` : 'بدون مؤقت'}</p>
+        </div>
+        <h3 style={{ marginTop: '2rem' }}>الأسئلة ({preview.questions.length})</h3>
+        <ol style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {preview.questions.map((q,i)=><li key={i} style={{ background: 'var(--card)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--line)' }}>
+            <strong>السؤال {i+1}: {q.text}</strong>
+            <ul style={{ margin: '0.8rem 0', listStyleType: 'none', paddingInlineStart: '0' }}>
+              {q.options.map((opt, j) => (
+                <li key={j} style={{ 
+                  color: j === q.correctIndex ? 'var(--ok)' : 'var(--muted)', 
+                  fontWeight: j === q.correctIndex ? 'bold' : 'normal',
+                  padding: '0.3rem 0'
+                }}>
+                  {j === q.correctIndex ? '✓ ' : '○ '} {opt}
+                </li>
+              ))}
+            </ul>
+            <p style={{ margin: 0 }}><small><strong>الشرح:</strong> {q.explanation}</small></p>
+          </li>)}
+        </ol>
       </div>
     )}
   </section>;
