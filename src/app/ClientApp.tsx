@@ -6,6 +6,7 @@ import { bestAttempts, calculateScore, formatTime, normalizeStudentName, buildRe
 import { seedQuizzes } from "@/lib/quiz";
 import { sanitizeAttempts, sanitizeQuizzes } from "@/lib/validate";
 import { parseImportQuiz, ImportQuiz } from "@/lib/schema";
+import confetti from "canvas-confetti";
 
 type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v2", ATTEMPTS_KEY="nabd-attempts-v2";
@@ -92,7 +93,7 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   };
 
   return <div className="shell">
-    <Header onHome={goHome} onLeaderboard={()=>setView("leaderboard")}/>
+    <Header view={view} onHome={goHome} onLeaderboard={()=>setView("leaderboard")} onAdmin={()=>setView("admin")}/>
     <main id="main" tabIndex={-1}>
       {!ready?<div className="empty">جارٍ تجهيز الاختبارات…</div>:
       view==="home"?<Home name={name} setName={setName} quizzes={quizzes} onStart={q=>{setActive(q);setView("play")}} hasSupabase={hasSupabase}/>:
@@ -105,21 +106,21 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   </div>;
 }
 
-function Header({onHome,onLeaderboard}:{onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>✓</span> نبض</button><div><button className="nav-link" onClick={onHome}>الاختبارات</button><button className="nav-link" onClick={onLeaderboard}>لوحة المتصدرين</button></div></nav></header>}
+function Header({view,onHome,onLeaderboard,onAdmin}:{view:View;onHome:()=>void;onLeaderboard:()=>void;onAdmin:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>ن</span><span className="brand-word">نبض<small>مساحة للتعلّم</small></span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button><button className="nav-link teacher-link" aria-current={view==="admin"?"page":undefined} onClick={onAdmin}>لوحة المدرّس</button></div></nav></header>}
 
 function Home({name,setName,quizzes,onStart,hasSupabase}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void;hasSupabase:boolean}){
   const [error,setError]=useState(""); 
   const submit=(e:FormEvent<HTMLFormElement>,q:Quiz)=>{e.preventDefault();if(name.trim().length<2){setError("اكتب اسمك أولًا (حرفان على الأقل).");return}setError("");onStart(q)};
   return <>
     <section className="hero">
-      <div className="eyebrow">مساحتك الذكية للتعلّم</div>
-      <h1>اختبر معلوماتك.<br/><em>واكتشف تقدّمك.</em></h1>
-      <p>اختبارات قصيرة وممتعة باللغة العربية. اكتب اسمك واختر اختبارًا لتبدأ فورًا.</p>
+      <div className="welcome-copy"><div className="eyebrow">كل محاولة، خطوة للأمام</div>
+      <h1>وقت صغير.<br/><em>معرفة أكبر.</em></h1>
+      <p>اختر اختبارًا، خُد وقتك، واكتشف ما تعلّمته. البداية باسمك فقط.</p><div className="welcome-note"><span>01</span> اختر <span>02</span> جرّب <span>03</span> تعلّم</div></div>
       <div className="name-box"><label htmlFor="student-name">اسم الطالب</label><span id="name-help" className="help">سيظهر اسمك في لوحة المتصدرين.</span><input id="student-name" name="studentName" value={name} onChange={e=>setName(e.target.value)} maxLength={60} required autoComplete="name" placeholder="مثال: سارة أحمد" aria-describedby="name-help name-error"/>{error&&<strong id="name-error" className="error" role="alert">{error}</strong>}</div>
     </section>
     <section className="content">
       {!hasSupabase && <div className="demo-notice"><strong>وضع التجربة (Demo):</strong> قاعدة البيانات غير متصلة. التغييرات تحفظ في متصفحك فقط.</div>}
-      <div className="section-title"><div><span className="eyebrow">ابدأ الآن</span><h2>الاختبارات المتاحة</h2></div><span className="count">{quizzes.length} اختبارات</span></div>
+      <div className="section-title"><div><span className="eyebrow">مساحة الفضول</span><h2>اختار تحدّيك اليوم</h2></div><span className="count">{quizzes.length} اختبارات متاحة</span></div>
       <div className="quiz-grid">{quizzes.map((q,i)=><article className="quiz-card" key={q.id}><div className={`card-icon c${i%3}`}>{["✦","أ","∞"][i%3]}</div><div className="tags"><span>{q.unit}</span><span>{q.durationMinutes?`${q.durationMinutes} دقائق`:"بدون مؤقت"}</span></div><h3>{q.title}</h3><p>{q.description}</p><div className="card-foot"><span>{q.questions.length} أسئلة</span><form onSubmit={e=>submit(e,q)}><button className="primary" type="submit"><span>ابدأ الاختبار</span> <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button></form></div></article>)}
       {quizzes.length===0&&<div className="empty" style={{gridColumn:"1/-1"}}>لا توجد اختبارات منشورة حالياً.</div>}
       </div>
@@ -152,7 +153,24 @@ function Player({quiz,studentName,onCancel,onFinish}:{quiz:Quiz;studentName:stri
 }
 
 function Result({quiz,attempt,review,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;review:ReviewItem[];onHome:()=>void;onBoard:()=>void}){
-  return <section className="result"><div className={attempt.score>=70?"score-ring good":"score-ring retry"}><strong>{attempt.score}%</strong><span>{attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{quiz.questions[i].text}</h3><p>إجابتك: {r.given?r.given:"بدون إجابة"}</p>{!r.ok&&<p>الصحيح: {r.correct}</p>}<small>{r.explanation}</small></li>})}</ol></section>
+  useEffect(() => {
+    if (attempt.score === 100) {
+      const duration = 3 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+      const interval: any = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) return clearInterval(interval);
+        const particleCount = 50 * (timeLeft / duration);
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+      }, 250);
+      return () => clearInterval(interval);
+    }
+  }, [attempt.score]);
+
+  return <section className="result"><div className={attempt.score>=70?"score-ring good":"score-ring retry"}><strong>{attempt.score}%</strong><span>{attempt.score===100?"بطل! 🏆":attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{quiz.questions[i].text}</h3><p>إجابتك: {r.given?r.given:"بدون إجابة"}</p>{!r.ok&&<p>الصحيح: {r.correct}</p>}<small>{r.explanation}</small></li>})}</ol></section>
 }
 
 function Leaderboard({quizzes,attempts,hasSupabase}:{quizzes:Quiz[];attempts:Attempt[];hasSupabase:boolean}){
