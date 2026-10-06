@@ -11,10 +11,19 @@ type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v2", ATTEMPTS_KEY="nabd-attempts-v2";
 
 export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
-  const [ready,setReady]=useState(false),[view,setView]=useState<View>("home"),[name,setName]=useState("");
+  const [ready,setReady]=useState(false);
+  const [view,setView]=useState<View>("home");
+  const [name,setName]=useState("");
   const [quizzes,setQuizzes]=useState<Quiz[]>([]),[attempts,setAttempts]=useState<Attempt[]>([]),[active,setActive]=useState<Quiz|null>(null);
   const [lastAttempt,setLastAttempt]=useState<Attempt|null>(null);
   const [lastReview,setLastReview]=useState<ReviewItem[]|null>(null);
+
+  useEffect(() => {
+    const handleHash = () => { if (window.location.hash === "#admin") setView("admin"); };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
 
   useEffect(() => {
     async function loadQuizzes() {
@@ -47,7 +56,7 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
     }
   },[quizzes,attempts,ready,hasSupabase]);
 
-  const goHome=()=>{setView("home");setActive(null);setLastAttempt(null);setLastReview(null);};
+  const goHome=()=>{setView("home");setActive(null);setLastAttempt(null);setLastReview(null); window.history.pushState(null, '', window.location.pathname);};
 
   const handleFinish = async (answers: number[], elapsedSeconds: number) => {
     if (!active) return;
@@ -83,7 +92,7 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   };
 
   return <div className="shell">
-    <Header onHome={goHome} onLeaderboard={()=>setView("leaderboard")} onAdmin={()=>setView("admin")}/>
+    <Header onHome={goHome} onLeaderboard={()=>setView("leaderboard")}/>
     <main id="main" tabIndex={-1}>
       {!ready?<div className="empty">جارٍ تجهيز الاختبارات…</div>:
       view==="home"?<Home name={name} setName={setName} quizzes={quizzes} onStart={q=>{setActive(q);setView("play")}} hasSupabase={hasSupabase}/>:
@@ -96,7 +105,7 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
   </div>;
 }
 
-function Header({onHome,onLeaderboard,onAdmin}:{onHome:()=>void;onLeaderboard:()=>void;onAdmin:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>✓</span> نبض</button><div><button className="nav-link" onClick={onHome}>الاختبارات</button><button className="nav-link" onClick={onLeaderboard}>لوحة المتصدرين</button><button className="nav-link" onClick={onAdmin}>للمدرّس</button></div></nav></header>}
+function Header({onHome,onLeaderboard}:{onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span>✓</span> نبض</button><div><button className="nav-link" onClick={onHome}>الاختبارات</button><button className="nav-link" onClick={onLeaderboard}>لوحة المتصدرين</button></div></nav></header>}
 
 function Home({name,setName,quizzes,onStart,hasSupabase}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void;hasSupabase:boolean}){
   const [error,setError]=useState(""); 
