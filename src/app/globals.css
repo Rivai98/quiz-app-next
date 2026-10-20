@@ -295,6 +295,20 @@ svg{flex-shrink:0}
   th,td{padding:.85rem .6rem;font-size:.8rem}
 }
 .admin-reports { margin-block: 1.5rem; }
+.quiz-content{display:block;min-inline-size:0;max-inline-size:100%;overflow-wrap:anywhere;text-align:start}
+.quiz-prose{white-space:pre-wrap}
+.quiz-code{display:block;max-inline-size:100%;min-inline-size:0;overflow-x:auto;direction:ltr;unicode-bidi:isolate;text-align:left;white-space:pre;tab-size:4;background:var(--surface-sunken);border:1px solid var(--line);border-radius:10px;padding:1rem;margin:.75rem 0;font:400 .95rem/1.7 Consolas,"Courier New",monospace}
+.quiz-code code{background:none;padding:0;border-radius:0;font:inherit;white-space:inherit;overflow-wrap:normal}
+.quiz-code .hljs-keyword,.quiz-code .hljs-selector-tag,.quiz-code .hljs-literal{color:#7042a3}
+.quiz-code .hljs-string,.quiz-code .hljs-attr{color:#216143}
+.quiz-code .hljs-number,.quiz-code .hljs-built_in{color:#95501b}
+.quiz-code .hljs-title,.quiz-code .hljs-name{color:#245d9b}
+.quiz-code .hljs-comment{color:#696579;font-style:italic}
+.options label>.quiz-content{flex:1;min-width:0}
+.options .quiz-code span{overflow-wrap:normal}
+legend{max-inline-size:100%;inline-size:100%}
+.admin-grid>*{min-inline-size:0}
+.draft textarea{white-space:pre-wrap;tab-size:4;min-inline-size:0}
 .report-search, .report-pages { display: flex; align-items: center; gap: .75rem; }
 .report-search input { min-inline-size: 0; flex: 1; }
 .report-pages { justify-content: center; margin-block: 1rem; flex-wrap: wrap; }

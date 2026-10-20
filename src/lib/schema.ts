@@ -2,31 +2,35 @@ import { z } from "zod";
 
 export const IMPORT_MAX_BYTES = 512 * 1024;
 export const IMPORT_MAX_QUESTIONS = 100;
+export const QUESTION_MAX_LENGTH = 10_000;
+export const EXPLANATION_MAX_LENGTH = 10_000;
+export const OPTION_MAX_LENGTH = 4_000;
 
 const questionIndex = (n: number) => `السؤال رقم ${n}`;
 const NOT_SUPPORTED_TYPE = "نوع السؤال غير مدعوم. الأنواع المسموحة: mcq أو true_false.";
 const TF_OPTIONS_MSG = "خيارات سؤال صح/خطأ يجب أن تكون «صح» و«خطأ» بالذات.";
 
-const rawText = (label: string) =>
-  z.string({ error: `${label} مفقود.` }).trim().min(1, `${label} مفقود أو فارغ.`);
+const contentText = (label: string) =>
+  z.string({ error: `${label} مفقود.` }).refine(text => text.trim().length > 0, `${label} مفقود أو فارغ.`);
+const rawText = (label: string) => z.string({ error: `${label} مفقود.` }).trim().min(1, `${label} مفقود أو فارغ.`);
 
 const mcqQuestion = z.object({
   type: z.literal("mcq"),
-  text: rawText("نص السؤال").max(500, "نص السؤال أطول من 500 حرف."),
+  text: contentText("نص السؤال").max(QUESTION_MAX_LENGTH, "نص السؤال أطول من 10000 حرف."),
   options: z
-    .array(z.string().trim().min(1, "لا يمكن أن يكون نص الخيار فارغًا.").max(200, "نص الخيار أطول من 200 حرف."))
+    .array(contentText("نص الخيار").max(OPTION_MAX_LENGTH, "نص الخيار أطول من 4000 حرف."))
     .min(2, "يجب أن يحتوي السؤال على خيارين على الأقل.")
     .max(6, "أقصى عدد للخيارات هو ستة."),
   correctIndex: z.number({ error: "رقم الإجابة الصحيحة (correctIndex) مفقود." }).int("رقم الإجابة الصحيحة يجب أن يكون عددًا صحيحًا."),
-  explanation: rawText("شرح الإجابة").max(500, "نص الشرح أطول من 500 حرف."),
+  explanation: contentText("شرح الإجابة").max(EXPLANATION_MAX_LENGTH, "نص الشرح أطول من 10000 حرف."),
 });
 
 const tfQuestion = z.object({
   type: z.literal("true_false"),
-  text: rawText("نص السؤال").max(500, "نص السؤال أطول من 500 حرف."),
-  options: z.array(z.string().trim().min(1, "لا يمكن أن يكون نص الخيار فارغًا.").max(200, "نص الخيار أطول من 200 حرف.")),
+  text: contentText("نص السؤال").max(QUESTION_MAX_LENGTH, "نص السؤال أطول من 10000 حرف."),
+  options: z.array(contentText("نص الخيار").max(OPTION_MAX_LENGTH, "نص الخيار أطول من 4000 حرف.")),
   correctIndex: z.number({ error: "رقم الإجابة الصحيحة (correctIndex) مفقود." }).int("رقم الإجابة الصحيحة يجب أن يكون عددًا صحيحًا."),
-  explanation: rawText("شرح الإجابة").max(500, "نص الشرح أطول من 500 حرف."),
+  explanation: contentText("شرح الإجابة").max(EXPLANATION_MAX_LENGTH, "نص الشرح أطول من 10000 حرف."),
 });
 
 const questionUnion = z.discriminatedUnion("type", [mcqQuestion, tfQuestion]);

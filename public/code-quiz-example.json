@@ -1,0 +1,22 @@
+{
+  "title": "أول خطوات JavaScript",
+  "unit": "الطباعة والجمع",
+  "description": "مثال بسيط لعرض الأكواد في الأسئلة والخيارات والشرح.",
+  "durationMinutes": null,
+  "questions": [
+    {
+      "type": "mcq",
+      "text": "ما الرقم الذي سيظهر؟\n```javascript\nlet apples = 2;\nconsole.log(apples + 3);\n```",
+      "options": ["5", "2", "3"],
+      "correctIndex": 0,
+      "explanation": "نجمع تفاحتين وثلاث تفاحات، فيكون العدد خمسة.\n```javascript\nconsole.log(2 + 3);\n```"
+    },
+    {
+      "type": "mcq",
+      "text": "أي كود يطبع كلمة مرحبًا؟",
+      "options": ["```javascript\nconsole.log(\"مرحبًا\");\n```", "```javascript\nconsole.log(7);\n```"],
+      "correctIndex": 0,
+      "explanation": "نضع الكلام بين علامتي تنصيص."
+    }
+  ]
+}

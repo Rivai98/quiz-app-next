@@ -1,5 +1,6 @@
 import type { Attempt, Question, QuestionType, Quiz } from "./types";
 import { normalizeArabicName } from "./quiz";
+import { QUESTION_MAX_LENGTH, EXPLANATION_MAX_LENGTH, OPTION_MAX_LENGTH } from "./schema";
 
 type Raw = Record<string, unknown>;
 
@@ -7,13 +8,13 @@ const isRaw=(v:unknown):v is Raw=>typeof v==="object"&&v!==null&&!Array.isArray(
 const asString=(v:unknown,min:number,max:number)=>typeof v==="string"&&v.trim().length>=min&&v.length<=max?v:undefined;
 const asInt=(v:unknown,min:number,max:number)=>typeof v==="number"&&Number.isInteger(v)&&v>=min&&v<=max?v:undefined;
 const isQuestionType=(v:unknown):v is QuestionType=>v==="mcq"||v==="true_false";
-const asOptionArray=(v:unknown):v is string[]=>Array.isArray(v)&&v.length>=2&&v.length<=6&&v.every(o=>typeof o==="string"&&o.length>=1&&o.length<=200);
+const asOptionArray=(v:unknown):v is string[]=>Array.isArray(v)&&v.length>=2&&v.length<=6&&v.every(o=>typeof o==="string"&&o.trim().length>=1&&o.length<=OPTION_MAX_LENGTH);
 
 function asQuestion(v:unknown,index:number):Question|null{
   if(!isRaw(v)) return null;
   const type=isQuestionType(v.type)?v.type:undefined;
-  const text=asString(v.text,1,500);
-  const explanation=typeof v.explanation==="string"&&v.explanation.length<=500?v.explanation:undefined;
+  const text=asString(v.text,1,QUESTION_MAX_LENGTH);
+  const explanation=asString(v.explanation,1,EXPLANATION_MAX_LENGTH);
   if(!type||!text||!explanation||!asOptionArray(v.options)) return null;
   const options=v.options;
   const correctIndex=asInt(v.correctIndex,0,options.length-1);

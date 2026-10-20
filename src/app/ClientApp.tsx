@@ -5,9 +5,10 @@ import type { Attempt, Quiz, LeaderboardRow, ReviewItem } from "@/lib/types";
 import { bestAttempts, calculateScore, formatTime, normalizeStudentName, buildReview, newId } from "@/lib/grading";
 import { seedQuizzes } from "@/lib/quiz";
 import { sanitizeAttempts, sanitizeQuizzes } from "@/lib/validate";
-import { parseImportQuiz, ImportQuiz } from "@/lib/schema";
+import { parseImportQuiz, ImportQuiz, IMPORT_MAX_BYTES, QUESTION_MAX_LENGTH, EXPLANATION_MAX_LENGTH, OPTION_MAX_LENGTH } from "@/lib/schema";
 import confetti from "canvas-confetti";
 import AdminReports from "./AdminReports";
+import QuizContent from "./QuizContent";
 
 type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v2", ATTEMPTS_KEY="nabd-attempts-v2";
@@ -167,7 +168,7 @@ function Player({quiz,studentName,onCancel,onFinish}:{quiz:Quiz;studentName:stri
     return()=>clearInterval(t);
   },[durationSeconds,started]);
   const q=quiz.questions[index],answered=answers[index]>=0;
-  return <section className="play"><div className="play-top"><button className="back" onClick={onCancel}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>رجوع</span></button><div><strong>{quiz.title}</strong><small>{studentName}</small></div>{remaining!==null&&<time className={remaining<=30?"timer low":"timer"} aria-live="polite">⏱ {formatTime(remaining)}</time>}</div><div className="progress"><p>السؤال {index+1} من {quiz.questions.length}</p><div className="bar" role="progressbar" aria-label="التقدم في الاختبار" aria-valuemin={1} aria-valuemax={quiz.questions.length} aria-valuenow={index+1}><span style={{width:`${(index+1)/quiz.questions.length*100}%`}}/></div></div><form onSubmit={e=>{e.preventDefault();if(index===quiz.questions.length-1)finish();else setIndex(i=>i+1)}}><fieldset><legend>{q.text}</legend><p className="question-type">{q.type==="mcq"?"اختر إجابة واحدة":"صح أم خطأ؟"}</p><div className="options">{q.options.map((option,i)=><label key={i} className={answers[index]===i?"selected":""}><input type="radio" name={`q-${q.id}`} value={i} checked={answers[index]===i} onChange={()=>setAnswer(i)}/><span>{option}</span></label>)}</div></fieldset><div className="play-actions"><button type="button" className="secondary" disabled={index===0} onClick={()=>setIndex(i=>i-1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>السابق</span></button><button className="primary" type="submit" disabled={!answered}>{index===quiz.questions.length-1?<><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>إنهاء وتسليم</span></> : <><span>السؤال التالي</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></>}</button></div></form></section>;
+  return <section className="play"><div className="play-top"><button className="back" onClick={onCancel}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>رجوع</span></button><div><strong>{quiz.title}</strong><small>{studentName}</small></div>{remaining!==null&&<time className={remaining<=30?"timer low":"timer"} aria-live="polite">⏱ {formatTime(remaining)}</time>}</div><div className="progress"><p>السؤال {index+1} من {quiz.questions.length}</p><div className="bar" role="progressbar" aria-label="التقدم في الاختبار" aria-valuemin={1} aria-valuemax={quiz.questions.length} aria-valuenow={index+1}><span style={{width:`${(index+1)/quiz.questions.length*100}%`}}/></div></div><form onSubmit={e=>{e.preventDefault();if(index===quiz.questions.length-1)finish();else setIndex(i=>i+1)}}><fieldset><legend><QuizContent text={q.text}/></legend><p className="question-type">{q.type==="mcq"?"اختر إجابة واحدة":"صح أم خطأ؟"}</p><div className="options">{q.options.map((option,i)=><label key={i} className={answers[index]===i?"selected":""}><input type="radio" name={`q-${q.id}`} value={i} checked={answers[index]===i} onChange={()=>setAnswer(i)}/><QuizContent text={option}/></label>)}</div></fieldset><div className="play-actions"><button type="button" className="secondary" disabled={index===0} onClick={()=>setIndex(i=>i-1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>السابق</span></button><button className="primary" type="submit" disabled={!answered}>{index===quiz.questions.length-1?<><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>إنهاء وتسليم</span></> : <><span>السؤال التالي</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></>}</button></div></form></section>;
 }
 
 function Result({quiz,attempt,review,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;review:ReviewItem[];onHome:()=>void;onBoard:()=>void}){
@@ -188,7 +189,7 @@ function Result({quiz,attempt,review,onHome,onBoard}:{quiz:Quiz;attempt:Attempt;
     }
   }, [attempt.score]);
 
-  return <section className="result"><div className={getScoreClass(attempt.score)}><strong>{attempt.score}%</strong><span>{attempt.score===100?"بطل! 🏆":attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3>{quiz.questions[i].text}</h3><p>إجابتك: {r.given?r.given:"بدون إجابة"}</p>{!r.ok&&<p>الصحيح: {r.correct}</p>}<small>{r.explanation}</small></li>})}</ol></section>
+  return <section className="result"><div className={getScoreClass(attempt.score)}><strong>{attempt.score}%</strong><span>{attempt.score===100?"بطل! 🏆":attempt.score>=70?"أحسنت!":"حاول مرة أخرى"}</span></div><h1>انتهى الاختبار يا {attempt.studentName}</h1><p>أنهيت {quiz.questions.length} أسئلة في {formatTime(attempt.elapsedSeconds)}.</p><div className="result-actions"><button className="primary" onClick={onBoard}>شاهد الترتيب</button><button className="secondary" onClick={onHome}>اختبار آخر</button></div><h2>مراجعة الإجابات</h2><ol className="review">{review.map((r,i)=>{return <li key={i} className={r.ok?"correct":"wrong"}><strong>{r.ok?"✓ إجابة صحيحة":"✕ إجابة غير صحيحة"}</strong><h3><QuizContent text={quiz.questions[i].text}/></h3><div>إجابتك: <QuizContent text={r.given ?? "بدون إجابة"}/></div>{!r.ok&&<div>الصحيح: <QuizContent text={r.correct ?? "بدون إجابة"}/></div>}<small><QuizContent text={r.explanation}/></small></li>})}</ol></section>
 }
 
 function Leaderboard({quizzes,attempts,hasSupabase}:{quizzes:Quiz[];attempts:Attempt[];hasSupabase:boolean}){
@@ -233,7 +234,7 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1024 * 1024) { setMessage("حجم الملف يتجاوز 1 ميغابايت."); return; }
+    if (file.size > IMPORT_MAX_BYTES) { setMessage("حجم الملف يتجاوز 512 كيلوبايت."); return; }
     try {
       const text = await file.text();
       const json = JSON.parse(text);
@@ -252,6 +253,8 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
 
   const saveDraft = async () => {
     if (!draft) return;
+    const checked = parseImportQuiz(draft);
+    if (!checked.ok) { setMessage(checked.error); return; }
     if (hasSupabase) {
       try {
         const res = await fetch("/api/admin/quizzes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
@@ -347,7 +350,9 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
     <div className="admin-grid">
       <div className="panel">
         <h2>رفع ملف JSON</h2>
-        <p>ارفع ملف اختبار جديد بصيغة JSON المطابقة للمعايير.</p>
+        <p>ارفع ملف اختبار جديد بصيغة JSON المطابقة للمعايير (حتى 512 كيلوبايت).</p>
+        <p className="help">اكتب الكود بين ثلاثة backticks، مع اسم اللغة مثل javascript. داخل JSON استخدم <code>\\n</code> للسطر الجديد و<code>\\t</code> للتبويب. الكود للعرض فقط.</p>
+        <a href="/code-quiz-example.json" download className="secondary button-like">تنزيل مثال اختبار برمجة</a>
         <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
           <label className="primary button-like" style={{ cursor: 'pointer', textAlign: 'center' }}>
             اختر ملف JSON
@@ -390,13 +395,23 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
         <ol>
           {draft.questions.map((q,i)=><li key={i}>
             <label htmlFor={`draft-q-${i}`}>السؤال {i+1} ({q.type === 'mcq' ? 'خيارات متعددة' : 'صح وخطأ'})</label>
-            <input id={`draft-q-${i}`} value={q.text} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,text:e.target.value}:x)})}/>
-            <small>الإجابة الصحيحة: {q.options[q.correctIndex]}</small>
+            <textarea id={`draft-q-${i}`} rows={5} maxLength={QUESTION_MAX_LENGTH} value={q.text} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,text:e.target.value}:x)})}/>
+            <div>الإجابة الصحيحة: <QuizContent text={q.options[q.correctIndex]}/></div>
+            <QuizContent text={q.text}/>
             <details>
               <summary>تعديل الخيارات والشرح</summary>
               <div style={{ padding: '0.5rem', background: 'var(--surface-sunken)', borderRadius: '0.5rem', marginTop: '0.5rem' }}>
-                <label>الشرح</label>
-                <input value={q.explanation} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,explanation:e.target.value}:x)})}/>
+                {q.options.map((option, optionIndex) => <div key={optionIndex}>
+                  <label htmlFor={`draft-option-${i}-${optionIndex}`}>الخيار {optionIndex+1}</label>
+                  <textarea id={`draft-option-${i}-${optionIndex}`} rows={3} maxLength={OPTION_MAX_LENGTH} readOnly={q.type === "true_false"} value={option} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,options:x.options.map((text,k)=>k===optionIndex?e.target.value:text)}:x)})}/>
+                  <QuizContent text={option}/>
+                </div>)}
+                <label htmlFor={`draft-answer-${i}`}>الإجابة الصحيحة</label>
+                <select id={`draft-answer-${i}`} value={q.correctIndex} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,correctIndex:Number(e.target.value)}:x)})}>
+                  {q.options.map((_,j)=><option key={j} value={j}>الخيار {j+1}</option>)}
+                </select>
+                <label htmlFor={`draft-explanation-${i}`}>الشرح</label>
+                <textarea id={`draft-explanation-${i}`} rows={5} maxLength={EXPLANATION_MAX_LENGTH} value={q.explanation} onChange={e=>setDraft({...draft,questions:draft.questions.map((x,j)=>j===i?{...x,explanation:e.target.value}:x)})}/>
               </div>
             </details>
           </li>)}
@@ -417,7 +432,7 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
         <h3 style={{ marginTop: '2rem' }}>الأسئلة ({preview.questions.length})</h3>
         <ol style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {preview.questions.map((q,i)=><li key={i} style={{ background: 'var(--card)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--line)' }}>
-            <strong>السؤال {i+1}: {q.text}</strong>
+            <strong>السؤال {i+1}: <QuizContent text={q.text}/></strong>
             <ul style={{ margin: '0.8rem 0', listStyleType: 'none', paddingInlineStart: '0' }}>
               {q.options.map((opt, j) => (
                 <li key={j} style={{ 
@@ -425,11 +440,11 @@ function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempt
                   fontWeight: j === q.correctIndex ? 'bold' : 'normal',
                   padding: '0.3rem 0'
                 }}>
-                  {j === q.correctIndex ? '✓ ' : '○ '} {opt}
+                  {j === q.correctIndex ? '✓ ' : '○ '} <QuizContent text={opt}/>
                 </li>
               ))}
             </ul>
-            <p style={{ margin: 0 }}><small><strong>الشرح:</strong> {q.explanation}</small></p>
+            <p style={{ margin: 0 }}><small><strong>الشرح:</strong> <QuizContent text={q.explanation}/></small></p>
           </li>)}
         </ol>
       </div>

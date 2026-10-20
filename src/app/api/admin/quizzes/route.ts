@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin, hasSupabaseEnv } from "@/lib/supabase";
-import { adminSaveSchema } from "@/lib/schema";
+import { parseImportQuiz, IMPORT_MAX_BYTES } from "@/lib/schema";
 import { verifyAdminToken, ADMIN_COOKIE } from "@/lib/adminAuth";
 import { cookies } from "next/headers";
 import { newId } from "@/lib/grading";
@@ -47,11 +47,15 @@ export async function POST(req: Request) {
   }
   try {
     await checkAdmin();
-    const body = await req.json();
-    const parsed = adminSaveSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const payload = await req.text();
+    if (new TextEncoder().encode(payload).length > IMPORT_MAX_BYTES) {
+      return NextResponse.json({ error: "حجم الملف يتجاوز 512 كيلوبايت." }, { status: 413 });
     }
+    let body: unknown;
+    try { body = JSON.parse(payload); }
+    catch { return NextResponse.json({ error: "صيغة JSON غير صحيحة." }, { status: 400 }); }
+    const parsed = parseImportQuiz(body);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
     const quiz = parsed.data;
     
     const supabase = getSupabaseAdmin();
