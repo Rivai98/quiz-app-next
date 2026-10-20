@@ -6,8 +6,13 @@ const MAX_AGE_SECONDS = 60 * 60 * 8;
 
 type Payload = { exp: number };
 
+function configuredPin(): string | undefined {
+  return process.env.ADMIN_PIN || (process.env.NODE_ENV !== "production" ? "1234" : undefined);
+}
+
 function getSecret(): string {
-  const pin = process.env.ADMIN_PIN || "1234"; // demo fallback, server-verified only
+  const pin = configuredPin();
+  if (!pin) throw new Error("ADMIN_NOT_CONFIGURED");
   const extra = process.env.ADMIN_SESSION_SECRET || "";
   return createHmac("sha256", `nabd-admin-v1:${extra}`).update(pin).digest("hex");
 }
@@ -25,7 +30,7 @@ export function createAdminToken(now = Date.now()): string {
 
 /** Verifies signature and expiry; returns true only for valid, unexpired tokens. */
 export function verifyAdminToken(token: string | undefined, now = Date.now()): boolean {
-  if (!token || typeof token !== "string") return false;
+  if (!configuredPin() || !token || typeof token !== "string") return false;
   const dot = token.lastIndexOf(".");
   if (dot < 1) return false;
   const body = token.slice(0, dot), sig = token.slice(dot + 1);
@@ -46,7 +51,8 @@ export function verifyAdminToken(token: string | undefined, now = Date.now()): b
 
 /** Compares the submitted PIN with ADMIN_PIN using timing-safe comparison. */
 export function verifyPin(pin: string): boolean {
-  const expected = process.env.ADMIN_PIN || "1234";
+  const expected = configuredPin();
+  if (!expected) return false;
   if (typeof pin !== "string" || pin.length !== expected.length) return false;
   try {
     return timingSafeEqual(Buffer.from(pin), Buffer.from(expected));

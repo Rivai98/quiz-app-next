@@ -7,6 +7,7 @@ import { seedQuizzes } from "@/lib/quiz";
 import { sanitizeAttempts, sanitizeQuizzes } from "@/lib/validate";
 import { parseImportQuiz, ImportQuiz } from "@/lib/schema";
 import confetti from "canvas-confetti";
+import AdminReports from "./AdminReports";
 
 type View="home"|"play"|"result"|"leaderboard"|"admin";
 const QUIZZES_KEY="nabd-quizzes-v2", ATTEMPTS_KEY="nabd-attempts-v2";
@@ -117,7 +118,7 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
       view==="play"&&active?<Player quiz={active} studentName={name} onCancel={goHome} onFinish={handleFinish}/>:
       view==="result"&&active&&lastAttempt&&lastReview?<Result quiz={active} attempt={lastAttempt} review={lastReview} onHome={goHome} onBoard={()=>setView("leaderboard")}/>:
       view==="leaderboard"?<Leaderboard quizzes={quizzes} attempts={attempts} hasSupabase={hasSupabase}/>:
-      <Admin quizzes={quizzes} setQuizzes={setQuizzes} hasSupabase={hasSupabase}/>}
+      <Admin quizzes={quizzes} attempts={attempts} setQuizzes={setQuizzes} hasSupabase={hasSupabase}/>}
     </main>
     <footer>اختباراتك — تعلّم، جرّب، وتقدّم ✦</footer>
   </div>;
@@ -205,7 +206,7 @@ function Leaderboard({quizzes,attempts,hasSupabase}:{quizzes:Quiz[];attempts:Att
   return <section className="content narrow"><span className="eyebrow">روح المنافسة</span><h1>لوحة المتصدرين</h1><label htmlFor="board-quiz">اختر الاختبار</label><select id="board-quiz" value={qid} onChange={e=>setQid(e.target.value)}>{quizzes.map(q=><option value={q.id} key={q.id}>{q.title}</option>)}</select>{rows.length?<div className="table-wrap"><table><caption>أفضل محاولة لكل طالب</caption><thead><tr><th scope="col">الترتيب</th><th scope="col">الطالب</th><th scope="col">النتيجة</th><th scope="col">الوقت</th></tr></thead><tbody>{rows.map((a,i)=><tr key={a.id}><td className="rank"><span aria-label={`المركز ${i+1}`}>{i<3?["🥇","🥈","🥉"][i]:i+1}</span></td><th scope="row">{a.studentName}</th><td>{a.score}%</td><td>{formatTime(a.elapsedSeconds)}</td></tr>)}</tbody></table></div>:<EmptyState text="لا توجد محاولات بعد. كن أول المتصدرين!" />}<p className="privacy">تظهر الأسماء والنتائج والأوقات بشكل عام {hasSupabase?"في التطبيق":"داخل هذا المتصفح"}.</p></section>
 }
 
-function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Quiz[])=>void;hasSupabase:boolean}){
+function Admin({quizzes,attempts,setQuizzes,hasSupabase}:{quizzes:Quiz[];attempts:Attempt[];setQuizzes:(q:Quiz[])=>void;hasSupabase:boolean}){
   const [unlocked,setUnlocked]=useState(false),[pin,setPin]=useState(""),[message,setMessage]=useState("");
   const [adminQuizzes, setAdminQuizzes] = useState<Quiz[]>(quizzes);
   const [draft, setDraft] = useState<ImportQuiz | null>(null);
@@ -223,12 +224,10 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
 
   const login = async (e:FormEvent) => {
     e.preventDefault();
-    if (hasSupabase) {
+    try {
       const res = await fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
-      if (res.ok) { setUnlocked(true); setMessage(""); } else { setMessage("رقم الدخول غير صحيح."); }
-    } else {
-      if (pin === "1234") { setUnlocked(true); setMessage(""); } else { setMessage("رقم الدخول غير صحيح."); }
-    }
+      if (res.ok) { setUnlocked(true); setPin(""); setMessage(""); } else { setMessage("كلمة المرور غير صحيحة أو دخول الإدارة غير معدّ."); }
+    } catch { setMessage("تعذّر الاتصال. حاول مرة أخرى."); }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,7 +321,7 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
     }
   };
 
-  if(!unlocked)return <section className="admin narrow"><span className="eyebrow">لوحة المدرّس</span><h1>دخول المدرّس</h1><p>الرقم الافتراضي في وضع العرض هو <code>1234</code>.</p><form onSubmit={login}><label htmlFor="pin">رقم الدخول</label><input id="pin" name="pin" type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={e=>setPin(e.target.value)} required/><button className="primary" type="submit">دخول</button>{message&&<p className="error" role="alert">{message}</p>}</form></section>;
+  if(!unlocked)return <section className="admin narrow"><span className="eyebrow">لوحة المدرّس</span><h1>دخول المدرّس</h1><p>الرقم الافتراضي في وضع العرض هو <code>1234</code>.</p><form onSubmit={login}><label htmlFor="pin">كلمة المرور</label><input id="pin" name="pin" type="password" autoComplete="current-password" value={pin} onChange={e=>setPin(e.target.value)} required/><button className="primary" type="submit">دخول</button>{message&&<p className="error" role="alert">{message}</p>}</form></section>;
 
   const exampleJson = JSON.stringify({
     title: "اختبار المجموعة الشمسية",
@@ -343,6 +342,8 @@ function Admin({quizzes,setQuizzes,hasSupabase}:{quizzes:Quiz[];setQuizzes:(q:Qu
   return <section className="admin">
     <span className="eyebrow">لوحة المدرّس</span>
     <h1>إدارة الاختبارات</h1>
+    <button className="secondary small" onClick={async () => { await fetch("/api/admin/logout", { method: "POST" }); setUnlocked(false); setPin(""); }}>تسجيل الخروج</button>
+    <AdminReports quizzes={adminQuizzes} attempts={attempts} hasSupabase={hasSupabase}/>
     <div className="admin-grid">
       <div className="panel">
         <h2>رفع ملف JSON</h2>
