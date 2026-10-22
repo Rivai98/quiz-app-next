@@ -128,14 +128,15 @@ export default function ClientApp({ hasSupabase }: { hasSupabase: boolean }){
 function Header({view,onHome,onLeaderboard}:{view:View;onHome:()=>void;onLeaderboard:()=>void}){return <header><nav aria-label="التنقل الرئيسي"><button className="brand" onClick={onHome}><span aria-hidden="true">✓</span><span className="brand-word">اختباراتك</span></button><div><button className="nav-link" aria-current={view==="home"?"page":undefined} onClick={onHome}>الاختبارات</button><button className="nav-link" aria-current={view==="leaderboard"?"page":undefined} onClick={onLeaderboard}>المتصدرون</button></div></nav></header>}
 
 function Home({name,setName,quizzes,onStart,hasSupabase}:{name:string;setName:(s:string)=>void;quizzes:Quiz[];onStart:(q:Quiz)=>void;hasSupabase:boolean}){
-  const [error,setError]=useState(""); 
-  const submit=(e:FormEvent<HTMLFormElement>,q:Quiz)=>{e.preventDefault();if(name.trim().length<2){setError("اكتب اسمك أولًا (حرفان على الأقل).");return}setError("");onStart(q)};
+  const [error,setError]=useState("");
+  const nameInputRef=useRef<HTMLInputElement>(null);
+  const submit=(e:FormEvent<HTMLFormElement>,q:Quiz)=>{e.preventDefault();if(name.trim().length<2){setError("اكتب اسمك أولًا (حرفان على الأقل).");nameInputRef.current?.focus({preventScroll:true});nameInputRef.current?.scrollIntoView({behavior:"smooth",block:"center"});return}setError("");onStart(q)};
   return <>
     <section className="hero">
       <div className="welcome-copy"><div className="eyebrow">مساحتك للتعلّم</div>
       <h1>اختبر معلوماتك.<br/><em>واكتشف تقدّمك.</em></h1>
       <p>اختبارات قصيرة متنوعة. اكتب اسمك واختر اختبارًا لتبدأ.</p></div>
-      <div className="name-box"><label htmlFor="student-name">اسم الطالب</label><span id="name-help" className="help">سيظهر اسمك في لوحة المتصدرين.</span><input id="student-name" name="studentName" value={name} onChange={e=>setName(e.target.value)} maxLength={60} required autoComplete="name" placeholder="مثال: سارة أحمد" aria-describedby="name-help name-error"/>{error&&<strong id="name-error" className="error" role="alert">{error}</strong>}</div>
+      <div className="name-box"><label htmlFor="student-name">اسم الطالب</label><span id="name-help" className="help">سيظهر اسمك في لوحة المتصدرين.</span><input ref={nameInputRef} id="student-name" name="studentName" value={name} onChange={e=>setName(e.target.value)} maxLength={60} required autoComplete="name" placeholder="مثال: سارة أحمد" aria-describedby="name-help name-error"/>{error&&<strong id="name-error" className="error" role="alert">{error}</strong>}</div>
     </section>
     <section className="content">
       {!hasSupabase && <div className="demo-notice"><strong>وضع التجربة (Demo):</strong> قاعدة البيانات غير متصلة. التغييرات تحفظ في متصفحك فقط.</div>}
